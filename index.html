@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Howl-arts: Learn ASL with Wizard Dogs</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐶</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{--night:#1a1533;--deep:#261e4a;--moon:#f6ecd4;--gold:#ffbf47;--mint:#62d6b8;--rose:#ff7a90;--ink:#d9d2f2}
+*{box-sizing:border-box}
+body{margin:0;background:#1a1533;color:var(--moon);font:600 16px/1.5 Nunito,system-ui,sans-serif;padding:14px 12px 40px}
+main{max-width:720px;margin:0 auto}
+h1,h2{font-family:Silkscreen,monospace;margin:0;font-weight:700}
+h1{font-size:clamp(24px,6vw,38px);color:var(--gold);text-shadow:3px 3px 0 #6b3d00}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.sub{color:var(--ink);margin:0 0 10px;font-size:15px}
+.stars{font-family:Silkscreen,monospace;color:var(--gold)}
+#map{display:block;width:100%;image-rendering:pixelated;border:4px solid #6b4423;border-radius:6px;background:#4f9d4a}
+.dpad{display:grid;grid-template-columns:repeat(3,60px);grid-template-rows:repeat(2,60px);gap:6px;justify-content:center;margin:14px 0}
+.dpad button{background:#33296e;color:var(--moon);border:3px solid #6f5fc4;border-radius:10px;font-size:22px;touch-action:none}
+.dpad .u{grid-column:2}
+button{font:inherit}
+button:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
+#ov{position:fixed;inset:0;background:#140f2cf2;display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:16px 12px}
+.card{width:100%;max-width:440px;margin:auto;text-align:center}
+.say{background:var(--moon);color:#2b2150;border-radius:4px 16px 16px 16px;padding:10px 14px;font-weight:800;margin:8px 0;text-align:left}
+#cv{width:min(260px,70vw);aspect-ratio:1;image-rendering:pixelated;border:4px solid #6f5fc4;border-radius:8px;background:radial-gradient(circle at 50% 30%,#4b3a96,#231a4d);display:block;margin:6px auto}
+.bar{display:flex;justify-content:space-between;align-items:center}
+.mana{font-size:20px;letter-spacing:2px}
+.prog{height:8px;background:#0006;border-radius:8px;overflow:hidden;margin:8px 0}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--mint),var(--gold))}
+.opts{display:grid;gap:8px;margin-top:10px}
+.opt,.btn{background:var(--deep);color:var(--moon);border:3px solid #6f5fc4;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:800}
+.opt:hover:not(:disabled){background:#3a2f70}
+.opt.ok{background:#14654f;border-color:var(--mint)}
+.opt.bad{background:#7a2236;border-color:var(--rose)}
+.btn.go{background:var(--gold);color:#3b2400;border-color:#a8701a}
+.hint{margin-top:8px;font-size:14px;color:var(--ink);text-align:left}
+.hint ol{margin:4px 0 0;padding-left:22px}
+.fb{min-height:26px;margin-top:10px}
+.big{font-size:60px;line-height:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><h1>Howl-arts</h1><span class="stars" id="st"></span></div>
+<p class="sub">You are a young wizard dog. Walk with the arrow keys or WASD (or the buttons below) into a wizard dog to start a trial. Watch the sign, then pick what it means.</p>
+<canvas id="map" width="240" height="176" aria-label="Overworld map"></canvas>
+<div class="dpad"><button class="u" data-k="ArrowUp" aria-label="Up">▲</button><button data-k="ArrowLeft" aria-label="Left" style="grid-row:2">◀</button><button data-k="ArrowDown" aria-label="Down" style="grid-row:2">▼</button><button data-k="ArrowRight" aria-label="Right" style="grid-row:2">▶</button></div>
+</main>
+<div id="ov" role="dialog" aria-modal="true"></div>
+<script>
+var D={
+hello:"Flat hand at your forehead like a salute, then swing it outward.",
+yes:"Make a fist and nod it up and down, like a head nodding.",
+no:"Tap your index and middle fingers against your thumb, like a beak snapping shut.",
+name:"Two H-hands (index and middle fingers together). Tap the right on top of the left, in an X.",
+sign:"Both index fingers point at each other and circle in alternating loops.",
+please:"Flat hand rubs in a circle on your chest.",
+thankyou:"Fingertips touch your chin, then your hand moves forward and down toward the person.",
+sorry:"A-hand (fist, thumb on the side) rubs in a circle on your chest.",
+eat:"Bunched fingertips tap your mouth, as if feeding yourself.",
+drink:"Hold a C-shape like a cup and tip it toward your mouth.",
+help:"Fist rests on your flat palm; lift both hands up together.",
+more:"Bunch the fingertips of both hands and tap them together.",
+home:"Bunched fingertips touch the corner of your mouth, then your cheek.",
+friend:"Hook your index fingers together, then flip and hook again the other way.",
+love:"Cross both fists over your heart.",
+water:"W-hand (three fingers up) taps your chin.",
+stop:"Flat hand chops down onto your other flat palm.",
+want:"Both hands, claw-shaped and palms up, pull toward your body.",
+airplane:"Y-hand with the index finger extended glides up and away like a plane taking off.",
+car:"Both fists grip an imaginary steering wheel and turn it.",
+train:"Two fingers (H) slide back and forth across two fingers of the other hand, like a train on tracks.",
+where:"Index finger up, wag it side to side while looking puzzled.",
+go:"Both index fingers point and arc forward together.",
+come:"Both index fingers beckon, curling toward your body.",
+bathroom:"T-hand (fist, thumb between fingers) shakes side to side.",
+money:"Bunched fingertips of one hand tap against your other palm.",
+me:"Point your index finger at your own chest.",
+you:"Point your index finger at the other person.",
+what:"Both palms up, shaking slightly side to side with a questioning face."
+};
+var L={A:"Fist with the thumb resting along the side.",B:"Flat hand, fingers up and together, thumb folded across the palm.",C:"Curve your hand into the shape of the letter C.",D:"Index finger straight up; other fingers touch the thumb in a circle.",I:"Fist with only the pinky finger up.",L:"Index finger up and thumb out, making an L.",O:"All fingertips meet the thumb, forming an O.",V:"Index and middle fingers up and spread, like a peace sign.",W:"Index, middle and ring fingers up and spread.",Y:"Thumb and pinky out, other fingers curled (hang loose)."};
+var LN={hello:"Hello",yes:"Yes",no:"No",name:"Name",sign:"Sign",please:"Please",thankyou:"Thank you",sorry:"Sorry",eat:"Eat",drink:"Drink",help:"Help",more:"More",home:"Home",friend:"Friend",love:"Love",water:"Water",stop:"Stop",want:"Want",airplane:"Airplane",car:"Car",train:"Train",where:"Where",go:"Go",come:"Come",bathroom:"Bathroom",money:"Money"};
+var S=[
+{k:["you","name","what"],m:"What is your name?"},
+{k:["me","want","water","please"],m:"I want water, please."},
+{k:["where","bathroom"],m:"Where is the bathroom?"},
+{k:["friend","go","home"],m:"My friend is going home."},
+{k:["me","go","airplane"],m:"I am going on an airplane."},
+{k:["you","want","eat","what"],m:"What do you want to eat?"},
+{k:["me","love","friend"],m:"I love my friend."},
+{k:["you","come","home","please"],m:"Please come home."}
+];
+
+// ---------- Levels ----------
+function words(ks){return ks.map(k=>({w:LN[k],k:k,h:D[k]}))}
+function letters(){return Object.keys(L).map(k=>({w:"Letter "+k,k:"L"+k,h:L[k]}))}
+var LV=[
+{n:"Puppy Spellbook",dog:"Professor Biscuit",body:"#d9a35f",hat:"#5b3fa8",items:words(["hello","yes","no","name","sign","please","thankyou","sorry"]),hi:"Welcome, apprentice! Every spell begins with a greeting. Watch my paws."},
+{n:"The Alphabet Runes",dog:"Madame Poodle-Sage",body:"#f2efe6",hat:"#d94f86",items:letters(),hi:"Ten runes guard the gate. Study the big hand in the corner."},
+{n:"Potions & Pantry",dog:"Sir Fetchalot",body:"#e0b04a",hat:"#2e9e7a",items:words(["eat","drink","help","more","home","friend","love","water","stop","want"]),hi:"Even wizards get hungry. Let's brew some everyday words!"},
+{n:"The Wandering Portal",dog:"Captain Howler",body:"#9aa7b5",hat:"#2f78d1",items:words(["airplane","car","train","where","go","come","bathroom","money"]),hi:"Adventure awaits beyond the portal. Travel signs get you across any realm."},
+{n:"The Grand Incantations",dog:"Archmage Moonpaw",body:"#7b7b8c",hat:"#c22f3a",sent:true,hi:"The final trial. I will chain signs together. Read the whole spell."}
+];
+// ---------- Sign animations: "x,y,shape ..." for dominant paw | other paw. Shapes: f fist, p flat, i index, h two fingers ----------
+var SG={hello:"14,8,p 8,9,p",yes:"13,16,f 13,20,f",no:"13,17,h 13,17,f",name:"14,15,h 16,19,h|17,19,h",sign:"13,17,i 15,19,i 13,21,i 11,19,i|19,21,i 17,19,i 19,17,i 21,19,i",please:"14,18,p 16,20,p 14,22,p 12,20,p",thankyou:"15,15,p 13,20,p",sorry:"14,18,f 16,20,f 14,22,f 12,20,f",eat:"14,15,f 15,13,f",drink:"13,17,f 15,13,f",help:"14,19,f 14,15,f|14,21,p 14,17,p",more:"14,19,f 16,19,f|18,19,f 16,19,f",home:"15,13,f 13,11,f",friend:"14,19,i 16,20,i|18,20,i 16,19,i",love:"15,18,f 15,19,f|17,18,f 17,19,f",water:"14,15,h 14,14,h",stop:"13,15,p 16,20,p|16,21,p",want:"10,19,p 14,20,f|21,19,p 17,20,f",airplane:"12,20,i 9,10,i",car:"13,18,f 12,20,f 13,22,f 14,20,f|19,22,f 20,20,f 19,18,f 18,20,f",train:"13,19,h 18,19,h|15,21,h",where:"13,16,i 16,16,i",go:"13,19,i 12,14,i|19,19,i 20,14,i",come:"9,18,i 13,19,i|22,18,i 18,19,i",bathroom:"14,18,f 16,18,f",money:"15,18,f 16,20,f|16,21,p",me:"11,17,i 15,19,i",you:"13,18,i 9,18,i",what:"11,19,p 13,19,p|21,19,p 19,19,p"};
+Object.keys(L).forEach(k=>SG["L"+k]="10,14,"+k+" 10,13,"+k);
+var SGP={};
+Object.keys(SG).forEach(k=>{SGP[k]=SG[k].split("|").map(p=>p.split(" ").map(q=>{var a=q.split(",");return[+a[0],+a[1],a[2]]}))});
+function R(c,col,x,y,w,h){c.fillStyle=col;c.fillRect(x,y,w,h)}
+function pose(F,u,rest){if(!F)return rest;var G=F.length>1?F.concat([F[0]]):F,s=u*(G.length-1),i=Math.min(Math.floor(s),Math.max(G.length-2,0)),f=s-i;f=f*f*(3-2*f);var a=G[i],b=G[i+1]||a;return[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,f>.5?b[2]:a[2]]}
+var HS={f:{e:[0,0,0,0],t:"a"},p:{e:[8,9,8,7],t:"s"},i:{e:[10,0,0,0],t:"a"},h:{e:[10,11,0,0],t:"a"},A:{e:[0,0,0,0],t:"s"},B:{e:[8,9,8,7],t:"a"},D:{e:[11,0,0,0],t:"c"},I:{e:[0,0,0,8],t:"a"},L:{e:[11,0,0,0],t:"o"},V:{e:[10,11,0,0],d:[-2,2,0,0],t:"a"},W:{e:[10,11,10,0],d:[-3,0,3,0],t:"a"},Y:{e:[0,0,0,9],t:"o"},
+C:{r:[[-5,-8,10,3],[-7,-8,4,17],[-5,6,10,3]]},O:{r:[[-4,-8,8,3],[-7,-6,3,13],[4,-6,3,13],[-4,5,8,3]]}};
+var TH={a:[-6,0,9,3],s:[-10,-3,4,10],o:[-14,-1,9,3],c:[-4,-3,7,4]};
+function hand(c,s,cx,cy,k){var h=HS[s]||HS.f,r=[],i,x,e,th;
+if(h.r)r=h.r;else{r.push([-6,-4,12,10]);for(i=0;i<4;i++){e=h.e[i];x=-6+3*i+(h.d?h.d[i]:0);r.push(e?[x,-4-e,3,e+1]:[x,-5,3,5])}th=TH[h.t]}
+c.save();c.translate(Math.round(cx),Math.round(cy));c.scale(k,k);
+r.forEach(q=>R(c,"#5a3a1a",q[0]-1,q[1]-1,q[2]+2,q[3]+2));
+r.forEach(q=>R(c,"#f1d9a8",q[0],q[1],q[2],q[3]));
+if(!h.r){for(i=1;i<4;i++){e=h.e[i];x=-6+3*i+(h.d?h.d[i]:0);R(c,"#c9a56a",x,e?-3-e:-4,1,e?e:5)}
+R(c,"#c9a56a",-6,4,12,1);
+R(c,"#5a3a1a",th[0]-1,th[1]-1,th[2]+2,th[3]+2);R(c,"#fbeccb",th[0],th[1],th[2],th[3])}
+c.restore()}
+function arm(c,hat,sx,p){for(var i=0;i<=24;i++){var x=Math.round(((sx+1)*6+(p[0]-sx-1)*6*i/24)/3)*3,y=Math.round((108+(p[1]-18)*6*i/24)/3)*3;R(c,hat,x-6,y-6,12,12);R(c,"#ffffff30",x-6,y-6,12,12)}}
+function wiz(c,hat,body,A,B,ls){
+c.clearRect(0,0,192,192);c.save();c.scale(6,6);
+R(c,hat,11,16,10,13);R(c,"#0003",11,28,10,1);[[13,21],[18,24],[15,26]].forEach(s=>R(c,"#ffd75e",s[0],s[1],1,1));
+for(var y=1;y<=6;y++)R(c,hat,16-y,y,2*y,1);
+R(c,hat,9,7,14,1);R(c,"#0005",9,7,14,1);R(c,"#ffd75e",16,3,1,1);
+R(c,body,12,8,8,7);R(c,body,10,8,2,6);R(c,body,20,8,2,6);R(c,"#0000004d",10,8,2,6);R(c,"#0000004d",20,8,2,6);
+R(c,"#222",14,10,1,2);R(c,"#222",17,10,1,2);R(c,"#f6ecd4",14,12,4,3);R(c,"#222",15,12,2,1);
+c.restore();
+arm(c,hat,11,A);arm(c,hat,20,B);
+hand(c,A[2],A[0]*6,A[1]*6,2);hand(c,B[2],B[0]*6,B[1]*6,2);
+if(ls){R(c,"#00000080",124,0,68,80);hand(c,ls,168,52,3)}}
+// ---------- Overworld ----------
+var P={};try{P=JSON.parse(localStorage.getItem("howlarts")||"{}")}catch(e){}
+function save(){try{localStorage.setItem("howlarts",JSON.stringify(P))}catch(e){}}
+function sh(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t}return a}
+var TS=16,VW=15,VH=11,MW=24;
+var MAP=["TTTTTTTTTTTTTTTTTTTTTTTT","T......F.....TT.....F..T","T..TT........TT..~~....T","T..TT....==......~~..F.T","T........=..F.........TT","T..F.....=======.....TTT","T..........T...=..~~...T","TT....F....T...=..~~...T","TT.........T...=.......T","T....TT........=====...T","T....TT..F.........F...T","T..........~~~....TT...T","T..F.......~~~....TT.F.T","T......................T","T...F.........F........T","TTTTTTTTTTTTTTTTTTTTTTTT"].map(r=>r.padEnd(MW,".").slice(0,MW).split(""));
+var NP=[[4,5],[12,3],[20,5],[18,10],[6,10]];
+NP.forEach(n=>MAP[n[1]][n[0]]=".");MAP[8][3]=".";
+var me={x:3,y:8,px:3,py:8,dir:1,step:0};
+var cvm=document.getElementById("map"),mc=cvm.getContext("2d"),ov=document.getElementById("ov");
+mc.imageSmoothingEnabled=false;
+function tile(ch,x,y,tx,ty,t){
+R(mc,(tx*7+ty*3)%3?"#4f9d4a":"#58a853",x,y,TS,TS);R(mc,"#3f8a3f",x+((tx*5+ty*11)%12),y+((tx*3+ty*7)%12),2,1);
+if(ch=="=")R(mc,"#c9a56a",x,y,TS,TS),R(mc,"#b38d52",x+3+(tx%3)*3,y+5,2,2);
+if(ch=="~"){R(mc,"#3a78c9",x,y,TS,TS);R(mc,"#8ec5ff",x+3+((t/400|0)+tx)%2*5,y+6,5,1)}
+if(ch=="F"){R(mc,"#ff7a90",x+4,y+5,2,2);R(mc,"#ffd75e",x+10,y+9,2,2)}
+if(ch=="T"){R(mc,"#6b4423",x+6,y+9,4,6);R(mc,"#2f6e34",x+2,y+2,12,9);R(mc,"#2f6e34",x+4,y,8,2);R(mc,"#4a9a44",x+4,y+4,3,3)}}
+function dog(x,y,body,hat,dir,bob){mc.save();mc.translate(x,y);if(dir<0){mc.translate(16,0);mc.scale(-1,1)}
+R(mc,body,1,6+bob,3,2);R(mc,body,3,7+bob,8,5);R(mc,body,4,12,2,3);R(mc,body,9,12,2,3);R(mc,"#0003",4,14,2,1);R(mc,"#0003",9,14,2,1);
+R(mc,body,10,4+bob,5,5);R(mc,"#0000004d",10,4+bob,2,4);R(mc,"#222",13,6+bob,1,1);R(mc,"#222",14,7+bob,1,1);
+R(mc,hat,12,1+bob,1,1);R(mc,hat,11,2+bob,3,1);R(mc,hat,10,3+bob,5,1);mc.restore()}
+var keys={};
+addEventListener("keydown",e=>{var k=({w:"ArrowUp",a:"ArrowLeft",s:"ArrowDown",d:"ArrowRight"})[e.key.toLowerCase()]||e.key;if(k.indexOf("Arrow")==0){keys[k]=1;if(!ov.innerHTML)e.preventDefault()}});
+addEventListener("keyup",e=>{var k=({w:"ArrowUp",a:"ArrowLeft",s:"ArrowDown",d:"ArrowRight"})[e.key.toLowerCase()]||e.key;delete keys[k]});
+document.querySelectorAll(".dpad button").forEach(b=>{var k=b.dataset.k;b.onpointerdown=e=>{e.preventDefault();keys[k]=1};["pointerup","pointerleave","pointercancel"].forEach(ev=>b.addEventListener(ev,()=>delete keys[k]))});
+function npcAt(x,y){for(var i=0;i<NP.length;i++)if(NP[i][0]==x&&NP[i][1]==y)return i;return -1}
+function update(){
+if(ov.innerHTML)return;
+if(me.px!=me.x||me.py!=me.y){var sp=.1;me.px+=Math.max(-sp,Math.min(sp,me.x-me.px));me.py+=Math.max(-sp,Math.min(sp,me.y-me.py));if(Math.abs(me.px-me.x)<.01)me.px=me.x;if(Math.abs(me.py-me.y)<.01)me.py=me.y;me.step+=.2;return}
+var dx=0,dy=0;if(keys.ArrowLeft)dx=-1;else if(keys.ArrowRight)dx=1;else if(keys.ArrowUp)dy=-1;else if(keys.ArrowDown)dy=1;
+if(!dx&&!dy)return;if(dx)me.dir=dx;
+var nx=me.x+dx,ny=me.y+dy,n=npcAt(nx,ny);
+if(n>=0){meet(n);keys={};return}
+if(MAP[ny]&&".=F".indexOf(MAP[ny][nx])>=0){me.x=nx;me.y=ny}}
+function draw(t){
+var cx=Math.max(0,Math.min(MW-VW,me.px-VW/2+.5)),cy=Math.max(0,Math.min(MAP.length-VH,me.py-VH/2+.5));
+var ox=Math.round(cx*TS),oy=Math.round(cy*TS);
+for(var ty=Math.floor(cy);ty<Math.min(MAP.length,cy+VH+1);ty++)for(var tx=Math.floor(cx);tx<Math.min(MW,cx+VW+1);tx++)tile(MAP[ty][tx],tx*TS-ox,ty*TS-oy,tx,ty,t);
+NP.forEach((n,i)=>{var l=LV[i],x=n[0]*TS-ox,y=n[1]*TS-oy;dog(x,y,l.body,l.hat,i%2?-1:1,(t/500|0)%2);
+if(!(P[i]>0)&&(i==0||P[i-1]>0)){var b=Math.round(Math.sin(t/200)*1.5);R(mc,"#ffd75e",x+7,y-8+b,2,4);R(mc,"#ffd75e",x+7,y-3+b,2,2)}});
+dog(Math.round(me.px*TS-ox),Math.round(me.py*TS-oy),"#b9824a","#2f78d1",me.dir,me.px!=me.x||me.py!=me.y?Math.floor(me.step)%2:0)}
+// ---------- Trials ----------
+var G=null,SEQ=null;
+function show(h){ov.innerHTML=h;ov.style.display=h?"flex":"none";if(h){var b=ov.querySelector(".go,.opt");if(b)b.focus()}}
+function hud(){var s=0;for(var k in P)s+=P[k];document.getElementById("st").textContent="★ "+s+" / "+LV.length*3}
+function meet(i){var l=LV[i];
+if(i>0&&!(P[i-1]>0))return show('<div class="card"><div class="big">🐕🔒</div><h2>'+l.dog+'</h2><div class="say">Not yet, young wizard. Pass '+LV[i-1].dog+"'s trial first, then come back.</div><button class=\"btn go\" id=\"x\">OK</button></div>");
+show('<div class="card"><div class="big">🐕🪄</div><h2>'+l.dog+'</h2><div class="say">'+l.hi+'</div><p class="sub">Trial: '+l.n+'. Keep your mana, answer the signs.</p><button class="btn go" id="s">Start trial</button> <button class="btn" id="x">Not now</button></div>');
+ov.querySelector("#x").onclick=()=>show("");ov.querySelector("#s").onclick=()=>{G={i:i,q:build(i),n:0,mana:3,right:0};ask()}}
+function build(i){var l=LV[i];
+if(l.sent)return sh(S).slice(0,4).map(s=>({keys:s.k,opts:sh([s.m].concat(sh(S.filter(x=>x!==s)).slice(0,3).map(x=>x.m))),ans:s.m,hint:s.k.map(k=>D[k])}));
+return sh(l.items).slice(0,5).map(x=>({keys:[x.k],opts:sh([x.w].concat(sh(l.items.filter(y=>y!==x)).slice(0,3).map(y=>y.w))),ans:x.w,hint:[x.h]}))}
+function ask(){var l=LV[G.i],q=G.q[G.n];SEQ={q:q,l:l};
+show('<div class="card"><div class="bar"><h2>'+l.dog+'</h2><span class="mana" aria-label="Mana">'+"💜".repeat(G.mana)+"🖤".repeat(3-G.mana)+'</span></div><div class="prog"><i style="width:'+G.n/G.q.length*100+'%"></i></div><canvas id="cv" width="192" height="192" aria-label="A wizard dog repeating a sign"></canvas><button class="btn" id="hb">Show a hint</button><div class="hint" id="ht"></div><div class="opts">'+q.opts.map((o,k)=>'<button class="opt" data-k="'+k+'">'+o+'</button>').join("")+'</div><div class="fb" id="fb" aria-live="polite"></div><div id="nx"></div></div>');
+ov.querySelector("#hb").onclick=()=>{ov.querySelector("#ht").innerHTML="The movement, in words:<ol>"+q.hint.map(h=>"<li>"+h+"</li>").join("")+"</ol>"};
+ov.querySelectorAll(".opt").forEach(b=>b.onclick=()=>pick(b,q))}
+function pick(b,q){var good=q.opts[+b.dataset.k]==q.ans;
+ov.querySelectorAll(".opt").forEach(o=>{o.disabled=true;if(q.opts[+o.dataset.k]==q.ans)o.classList.add("ok")});
+if(good){G.right++;ov.querySelector("#fb").textContent="✨ Spell cast! Well done."}else{b.classList.add("bad");G.mana--;ov.querySelector("#fb").textContent="💥 The spell fizzled. The right answer is highlighted."}
+var nx=ov.querySelector("#nx"),last=G.n==G.q.length-1;
+nx.innerHTML='<button class="btn go">'+(G.mana<=0||last?"Continue":"Next spell")+'</button>';nx.firstChild.focus();
+nx.firstChild.onclick=()=>{G.n++;if(G.mana<=0||G.n>=G.q.length)finish();else ask()}}
+function finish(){SEQ=null;var l=LV[G.i],won=G.mana>0,st=won?G.mana:0;
+if(won&&st>(P[G.i]||0)){P[G.i]=st;save();hud()}
+show('<div class="card"><div class="big">'+(won?"🐕🎉":"😵‍💫")+'</div><h2>'+(won?"Trial passed!":"Out of mana")+'</h2><p class="stars">'+"★".repeat(st)+"☆".repeat(3-st)+'</p><p>'+(won?G.right+" of "+G.q.length+" spells cast."+(G.i<LV.length-1?" A new wizard dog is waiting for you on the map.":" You are an Archmage of ASL!"):"Rest up and try again. "+l.dog+" believes in you.")+'</p><button class="btn go" id="x">Back to the map</button></div>');
+ov.querySelector("#x").onclick=()=>show("")}
+function signFrame(t){var cv=document.getElementById("cv");if(!cv||!SEQ)return;
+var ks=SEQ.q.keys,per=2100,tt=t%(ks.length*per),i=Math.floor(tt/per),loc=tt%per,k=ks[i],u=loc<1600?loc/1600:null,sg=SGP[k],RA=[11,24,"f"],RB=[20,24,"f"];
+var A=u===null?RA:pose(sg[0],u,RA),B=u===null?RB:pose(sg[1],u,RB);
+wiz(cv.getContext("2d"),SEQ.l.hat,SEQ.l.body,A,B,k.length==2&&k[0]=="L"?k[1]:null)}
+function loop(t){update();draw(t);signFrame(t);requestAnimationFrame(loop)}
+hud();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
